@@ -1,0 +1,132 @@
+{
+  "name": "DS-01 — Capture et validation d'un prospect",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "capture-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-in",
+      "name": "Webhook — Entrée Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "webhookId": "digisys-lead-capture-endpoint"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalisation et validation des données d'entrée\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const body = item.json.body || item.json;\n  \n  // Nettoyage et extraction\n  const nom_contact = (body.nom_contact || '').trim();\n  const nom_entreprise = (body.nom_entreprise || '').trim();\n  const secteur_activite = (body.secteur_activite || 'Non spécifié').trim();\n  const ville = (body.ville || 'Abidjan').trim();\n  const canal_source = (body.canal_source || 'formulaire_web').trim();\n  let telephone = (body.telephone || '').replace(/[^0-9+]/g, '');\n  const email = (body.email || '').trim().toLowerCase();\n  const besoin_exprime = (body.besoin_exprime || '').trim();\n  \n  // Formatage indicatif Côte d'Ivoire (+225) si 10 chiffres locaux\n  if (telephone.length === 10 && !telephone.startsWith('+')) {\n    telephone = '+225' + telephone;\n  }\n\n  // Validation des champs indispensables\n  const erreurs = [];\n  if (!nom_entreprise && !nom_contact) {\n    erreurs.push('Nom du contact ou de l\\'entreprise obligatoire');\n  }\n  if (!telephone && !email) {\n    erreurs.push('Au moins un canal de contact (téléphone ou email) est requis');\n  }\n\n  const valide = erreurs.length === 0;\n  const lead_id = 'LEAD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);\n\n  results.push({\n    json: {\n      lead_id,\n      nom_contact,\n      nom_entreprise,\n      secteur_activite,\n      ville,\n      canal_source,\n      telephone,\n      email,\n      besoin_exprime,\n      statut_crm: valide ? 'nouveau' : 'a_verifier',\n      ne_plus_contacter: false,\n      est_valide: valide,\n      erreurs_validation: erreurs,\n      date_creation: new Date().toISOString()\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "node-nettoyage-validation",
+      "name": "Validation & Nettoyage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.est_valide }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-check-validite",
+      "name": "Données Valides ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "respondWith": "json",
+        "responseBody": "={\n  \"statut\": \"succes\",\n  \"message\": \"Lead capturé et enregistré dans le référentiel CRM Digisys\",\n  \"lead_id\": \"{{ $json.lead_id }}\",\n  \"statut_crm\": \"{{ $json.statut_crm }}\"\n}"
+      },
+      "id": "node-reponse-ok",
+      "name": "Réponse 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 400
+        },
+        "respondWith": "json",
+        "responseBody": "={\n  \"statut\": \"erreur\",\n  \"message\": \"Données de lead invalides ou incomplètes\",\n  \"erreurs\": {{ JSON.stringify($json.erreurs_validation) }}\n}"
+      },
+      "id": "node-reponse-erreur",
+      "name": "Réponse 400 Erreur",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook — Entrée Lead": {
+      "main": [
+        [
+          {
+            "node": "Validation & Nettoyage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation & Nettoyage": {
+      "main": [
+        [
+          {
+            "node": "Données Valides ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Données Valides ?": {
+      "main": [
+        [
+          {
+            "node": "Réponse 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Réponse 400 Erreur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,58 @@
+[
+  {
+    "scenario": "Cas 1 : Lead Valide et Complet (Boutique de Mode à Abidjan)",
+    "payload": {
+      "nom_contact": "Awa Kouassi",
+      "nom_entreprise": "Élégance d'Abidjan",
+      "secteur_activite": "Mode et Accessoires",
+      "ville": "Abidjan - Cocody",
+      "canal_source": "formulaire_site",
+      "telephone": "0708091011",
+      "email": "contact@elegance-abidjan.ci",
+      "besoin_exprime": "Gérer les nombreuses commandes WhatsApp et éviter les oublis de livraison"
+    },
+    "resultat_attendu": "DS-01 : Valide, statut 'nouveau', +225 ajouté au numéro. DS-02 : Score 100/100, brouillon personnalisé généré, notif Telegram envoyée."
+  },
+  {
+    "scenario": "Cas 2 : Lead Valide Sectoriel Neutre (Pâtisserie / Restauration)",
+    "payload": {
+      "nom_contact": "Mamadou Bakayoko",
+      "nom_entreprise": "Douceurs du Plateau",
+      "secteur_activite": "Pâtisserie & Événements",
+      "ville": "Abidjan - Plateau",
+      "canal_source": "recommandation",
+      "telephone": "+2250102030405",
+      "email": "",
+      "besoin_exprime": "Centraliser les messages de devis reçus sur Instagram et WhatsApp"
+    },
+    "resultat_attendu": "DS-01 : Valide. DS-02 : Score 100/100, brouillon adapté à la pâtisserie, notif Telegram envoyée."
+  },
+  {
+    "scenario": "Cas 3 : Lead Incomplet (Erreur de validation)",
+    "payload": {
+      "nom_contact": "",
+      "nom_entreprise": "",
+      "secteur_activite": "Commerce",
+      "ville": "Bouaké",
+      "canal_source": "formulaire_site",
+      "telephone": "",
+      "email": ""
+    },
+    "resultat_attendu": "DS-01 : Invalide, réponse HTTP 400 avec liste des erreurs de validation (Nom et Contact manquants)."
+  },
+  {
+    "scenario": "Cas 4 : Prospect avec opposition ('Ne plus contacter')",
+    "payload": {
+      "nom_contact": "Jean Kouamé",
+      "nom_entreprise": "Boutique Auto CI",
+      "secteur_activite": "Automobile",
+      "ville": "Abidjan",
+      "canal_source": "prospection",
+      "telephone": "+2250506070809",
+      "email": "contact@boutiqueautoci.ci",
+      "ne_plus_contacter": true,
+      "besoin_exprime": "Pas intéressé par vos services"
+    },
+    "resultat_attendu": "DS-02 : Bloqué immédiatement par la condition d'éligibilité, aucun brouillon ni notification d'approche commerciale générée."
+  }
+]

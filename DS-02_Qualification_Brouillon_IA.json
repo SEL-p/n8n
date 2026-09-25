@@ -1,0 +1,160 @@
+{
+  "name": "DS-02 — Qualification et Brouillon d'approche IA",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "qualify-lead",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-trigger-ds02",
+      "name": "Déclencheur — Lead à Qualifier",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "webhookId": "digisys-lead-qualify-endpoint"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Règles de qualification déterministes et explicables (adaptables à toute niche)\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const lead = item.json.body || item.json;\n  \n  let score = 0;\n  const justifications = [];\n  \n  // 1. Canal de contact direct\n  if (lead.telephone && (lead.telephone.startsWith('+225') || lead.telephone.length >= 10)) {\n    score += 30;\n    justifications.push('Numéro WhatsApp/téléphone local disponible (+30)');\n  } else if (lead.email) {\n    score += 15;\n    justifications.push('Email professionnel/direct fourni (+15)');\n  }\n  \n  // 2. Activité et Entreprise identifiées\n  if (lead.nom_entreprise && lead.nom_entreprise.length > 2) {\n    score += 25;\n    justifications.push('Nom d\\'entreprise/boutique clairement identifié (+25)');\n  }\n  \n  // 3. Besoin exprimé\n  if (lead.besoin_exprime && lead.besoin_exprime.length > 10) {\n    score += 30;\n    justifications.push('Besoin commercial/organisationnel formulé (+30)');\n  } else {\n    score += 10;\n    justifications.push('Activité déclarée sans besoin précis explicite (+10)');\n  }\n  \n  // 4. Localisation\n  if (lead.ville && lead.ville.toLowerCase().includes('abidjan')) {\n    score += 15;\n    justifications.push('Zone géographique prioritaire (+15)');\n  } else {\n    score += 5;\n    justifications.push('Autre zone couverte (+5)');\n  }\n\n  // Vérification stricte de l'exclusion\n  const ne_plus_contacter = Boolean(lead.ne_plus_contacter);\n  const statut_crm = ne_plus_contacter ? 'ne_plus_contacter' : (score >= 50 ? 'qualifie' : 'a_evaluer');\n\n  results.push({\n    json: {\n      ...lead,\n      score_qualification: score,\n      justification_score: justifications.join(' | '),\n      statut_crm,\n      pret_pour_brouillon: !ne_plus_contacter && score >= 50\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "node-score-deterministe",
+      "name": "Scoring Déterministe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.pret_pour_brouillon }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-verif-eligibilite",
+      "name": "Éligible Brouillon ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Génération sécurisée du brouillon d'approche personnalisé sans hallucination\n// Ce bloc prépare le contexte et le texte d'accroche personnalisé selon la niche fournie\nconst item = $input.item;\nconst lead = item.json;\n\nconst interlocuteur = lead.nom_contact ? lead.nom_contact : 'l\\'équipe de ' + lead.nom_entreprise;\nconst secteur = lead.secteur_activite && lead.secteur_activite !== 'Non spécifié' ? lead.secteur_activite : 'votre activité';\nconst besoin = lead.besoin_exprime ? `concernant \"${lead.besoin_exprime}\"` : 'sur l\\'optimisation de vos échanges clients';\n\nconst brouillon_message = `Bonjour ${interlocuteur},\n\nJe suis l'équipe Digisys. Nous accompagnons les professionnels dans le secteur (${secteur}) à Abidjan pour simplifier le suivi de leurs commandes et demandes clients sur WhatsApp et les réseaux sociaux.\n\nSuite à votre intérêt ${besoin}, nous avons préparé une approche simple et adaptée à votre organisation.\n\nSeriez-vous disponible pour un court échange de 10 minutes cette semaine ?\n\nBien cordialement,\nL'équipe Digisys`;\n\nreturn {\n  json: {\n    ...lead,\n    brouillon_message,\n    statut_crm: 'brouillon_a_valider',\n    date_generation_brouillon: new Date().toISOString()\n  }\n};"
+      },
+      "id": "node-generation-brouillon",
+      "name": "Préparation Brouillon Personnalisé",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "VOTRE_CHAT_ID_TELEGRAM",
+        "text": "=🔔 *NOUVEAU BROUILLON DIGISYS À VALIDER*\n\n📋 *Prospect :* {{ $json.nom_entreprise }} ({{ $json.nom_contact }})\n🏙 *Ville :* {{ $json.ville }} | *Secteur :* {{ $json.secteur_activite }}\n📞 *Contact :* {{ $json.telephone || $json.email }}\n🎯 *Score :* {{ $json.score_qualification }}/100\n💡 *Justification :* {{ $json.justification_score }}\n\n✍️ *Brouillon d'approche proposé :*\n━━━━━━━━━━━━━━━━━━━━\n{{ $json.brouillon_message }}\n━━━━━━━━━━━━━━━━━━━━\n\n⚠️ *Action requise :* Valider ou ajuster avant tout envoi manuel.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "node-telegram-approbation",
+      "name": "Notification Telegram (Approbation)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1180,
+        220
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CREDENTIAL_TELEGRAM_ID",
+          "name": "Telegram Digisys Alertes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Branche prospect non éligible ou refusé\nconst item = $input.item;\nreturn {\n  json: {\n    ...item.json,\n    action_requise: 'Aucune action commerciale sortante (non éligible ou ne plus contacter)',\n    statut_crm: item.json.statut_crm\n  }\n};"
+      },
+      "id": "node-branche-exclusion",
+      "name": "Arrêt / Non Éligible",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Déclencheur — Lead à Qualifier": {
+      "main": [
+        [
+          {
+            "node": "Scoring Déterministe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scoring Déterministe": {
+      "main": [
+        [
+          {
+            "node": "Éligible Brouillon ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Éligible Brouillon ?": {
+      "main": [
+        [
+          {
+            "node": "Préparation Brouillon Personnalisé",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Arrêt / Non Éligible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparation Brouillon Personnalisé": {
+      "main": [
+        [
+          {
+            "node": "Notification Telegram (Approbation)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
