@@ -2,6 +2,10 @@
 .env
 *.env.local
 
+# Données Docker / Caddy (si montées localement)
+caddy_data/
+caddy_config/
+
 # Logs
 *.log
 npm-debug.log*

@@ -1,5 +1,22 @@
-{$SUBDOMAIN}.{$DOMAIN_NAME} {
+# ─────────────────────────────────────────────────
+# MODE IP (sans domaine) — HTTP sur port 80
+# Quand vous aurez un domaine, remplacez ce bloc par :
+#   {$SUBDOMAIN}.{$DOMAIN_NAME} {
+#       reverse_proxy n8n:5678 { flush_interval -1 }
+#       header { ... }
+#   }
+# ─────────────────────────────────────────────────
+
+:80 {
     reverse_proxy n8n:5678 {
         flush_interval -1
+    }
+
+    # En-têtes de sécurité
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
     }
 }
