@@ -1,49 +1,21 @@
 services:
-  # ── Reverse Proxy (mode IP → HTTP / mode domaine → HTTPS auto) ──
-  caddy:
-    image: caddy:2-alpine
-    container_name: caddy-digisys
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      - SUBDOMAIN=${SUBDOMAIN:-}
-      - DOMAIN_NAME=${DOMAIN_NAME:-}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - digisys-net
-    depends_on:
-      - n8n
-
-  # ── n8n (non exposé directement — uniquement via Caddy) ──
   n8n:
     image: n8nio/n8n:latest
     container_name: n8n-digisys
     restart: unless-stopped
+    ports:
+      - "5678:5678"
     environment:
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
       - NODE_ENV=production
-      - WEBHOOK_URL=http://${SERVER_IP}/
+      - WEBHOOK_URL=http://${SERVER_IP}:5678/
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
       - TZ=${GENERIC_TIMEZONE}
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
     volumes:
       - n8n_data:/home/node/.n8n
-    networks:
-      - digisys-net
-
-networks:
-  digisys-net:
-    driver: bridge
 
 volumes:
   n8n_data:
-  caddy_data:
-  caddy_config:
